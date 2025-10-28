@@ -128,7 +128,3 @@ def set_version(req: SetVersionRequest):
     model = mlflow.pyfunc.load_model(MODEL_URI)
     return {"message": f"Model version updated to {MODEL_VERSION}"}
 
-
-# TODO Add endpoint to get the current model serving version
-# TODO Add endpoint to update the serving version
-# TODO Predict using the correct served version
