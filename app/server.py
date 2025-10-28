@@ -9,6 +9,7 @@ MLFLOW_TRACKING_URI = "http://127.0.0.1:5000"
 MODEL_NAME          = "iris-classifier"
 MODEL_VERSION       = "1"
 
+
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 MODEL_URI = f"models:/{MODEL_NAME}/{MODEL_VERSION}"
 model = mlflow.pyfunc.load_model(MODEL_URI)
@@ -70,12 +71,64 @@ def health():
     description="Send one or more Iris samples; returns class id (0,1,2) and label (setosa, versicolor, virginica)."
 )
 def predict(req: PredictRequest) -> PredictResponse:
-    # TODO Run predict
+    class_id = []
+    class_label = []
+
+    for sample in req.samples:
+        model_input = [[
+            sample.sepal_length,
+            sample.sepal_width,
+            sample.petal_length,
+            sample.petal_width
+        ]]
+        prediction = model.predict(model_input)
+        print(f"Predicted class w/ version {MODEL_VERSION} for sample {sample}: {prediction[0]}")
+
+        class_id.append(int(prediction[0]))
+        class_label.append(IRIS_LABELS[int(prediction[0])])
+
     return PredictResponse(
-        class_id=[],
-        class_label=[]
+        class_id=class_id,
+        class_label=class_label
     )
     
+@app.get("/version", tags=["version"], summary="Get model serving version")
+def get_version():
+    return {"version": MODEL_VERSION} 
+
+
+class SetVersionRequest(BaseModel):
+    version: str
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"version": "2"}
+            ]
+        }
+    }
+
+class VersionResponse(BaseModel):
+    message: str
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"message": "Model version updated to 2"}
+            ]
+        }
+    }
+
+@app.post("/version", tags=["version"], summary="Set model serving version",
+          response_model=VersionResponse)
+def set_version(req: SetVersionRequest):
+    global MODEL_VERSION, MODEL_URI, model
+    MODEL_VERSION = req.version
+    MODEL_URI = f"models:/{MODEL_NAME}/{MODEL_VERSION}"
+    model = mlflow.pyfunc.load_model(MODEL_URI)
+    return {"message": f"Model version updated to {MODEL_VERSION}"}
+
+
 # TODO Add endpoint to get the current model serving version
 # TODO Add endpoint to update the serving version
 # TODO Predict using the correct served version
